@@ -8,7 +8,7 @@
  * @version    1.7
  * @author     Fuel Development Team
  * @license    MIT License
- * @copyright  2010 - 2013 Fuel Development Team
+ * @copyright  2010 - 2014 Fuel Development Team
  * @link       http://fuelphp.com
  */
 
@@ -103,9 +103,81 @@ class Refine
 			is_callable($task.'::_init') and $task::_init();
 		}
 
-		if ($return = call_fuel_func_array(array($new_task, $method), $args))
+		//Create new task in cron log
+		\Autoloader::add_class('Cron_Log', APPPATH . 'classes/model/cron/log.php');
+
+		//Check if logs exists
+		if (\DBUtil::table_exists('cron_log'))
 		{
-			\Cli::write($return);
+			$params   = json_encode($args);
+			$shop = \Site::get_site_config('abbreviation');
+
+			//Check if task don't running
+			if ($prev = \Cron_Log::query()->where('task', $task)->where('params', $params)->where('shop', $shop)->order_by('id', 'desc')->get_one())
+			{
+				//If task is longer than 15 minutes
+				if ($prev->status == 'running' and $prev->created_at < (time() - 60 * 15))
+				{
+					$prev->status    = 'error';
+					$prev->finish_at = time();
+					$prev->save();
+				}
+
+				// If task is active, stop this cron
+				if ($prev->status == 'running')
+				{
+					\Cli::write('The same task still running.');
+					return;
+				}
+			}	
+
+			//Create new Cron log
+			$log         = new \Cron_Log();
+			$log->status = 'running';
+			$log->shop   = $shop;
+			$log->task   = $task;
+			$log->params = $params;
+			$log->save();
+		}
+
+		if (is_callable(array($new_task, $method)))
+		{
+			try
+			{
+				if ($return = call_fuel_func_array(array($new_task, $method), $args))
+				{
+					\Cli::write($return);
+				}
+				isset($log) and $log->status = 'ok';
+			}
+			catch (Exception $e)
+			{
+				isset($log) and $log->status = 'error';
+				isset($log) and $log->error = $e->getMessage();
+			}
+
+			isset($log) and $log->finish_at = time();
+			isset($log) and $log->save();
+		}
+		else
+		{
+			\Cli::write(sprintf('Task "%s" does not have a command called "%s".', $task, $method));
+
+			\Cli::write("\nDid you mean:\n");
+			$reflect = new \ReflectionClass($new_task);
+
+			// Ensure we only pull out the public methods
+			$methods = $reflect->getMethods(\ReflectionMethod::IS_PUBLIC);
+			if (count($methods) > 0)
+			{
+				foreach ($methods as $method)
+				{
+					if (strpos($method->name, '_') !== 0)
+					{
+						\Cli::write(sprintf("php oil [r|refine] %s:%s", $reflect->getShortName(), $method->name));
+					}
+				}
+			}
 		}
 	}
 
