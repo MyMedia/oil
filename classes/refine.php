@@ -103,28 +103,28 @@ class Refine
 			is_callable($task.'::_init') and $task::_init();
 		}
 
-		//Create new task in cron log
-		\Autoloader::add_class('Cron_Log', APPPATH . 'classes/model/cron/log.php');
-
 		//Check if logs exists
-		if (\DBUtil::table_exists('cron_log'))
+		if (\DBUtil::table_exists('task_log'))
 		{
+			$hostname = $_SERVER['FUEL_HOSTNAME'] ?: '';
+
 			$params   = json_encode($args);
-			$shop = \Site::get_site_config('abbreviation');
 
 			//Check if task don't running
-			if ($prev = \Cron_Log::query()->where('task', $task)->where('params', $params)->where('shop', $shop)->order_by('id', 'desc')->get_one())
+			if ($prev = \DB::select()->from('task_log')->where('task', $task)->where('params', $params)->where('hostname', $hostname)->order_by('id', 'desc')->limit(1)->execute()->as_array())
 			{
+				$prev = $prev[0];
 				//If task is longer than 15 minutes
-				if ($prev->status == 'running' and $prev->created_at < (time() - 60 * 15))
+				if ($prev['status'] == 'running' and $prev['created_at'] < (time() - 60 * 15))
 				{
-					$prev->status    = 'error';
-					$prev->finish_at = time();
-					$prev->save();
+					$prev['status']    = 'error';
+					$prev['error']     = 'Timeout: Task was running over 15 minutes';
+					$prev['finish_at'] = time();
+					\DB::update('task_log')->set($prev)->where('id', $prev['id'])->execute();
 				}
 
 				// If task is active, stop this cron
-				if ($prev->status == 'running')
+				if ($prev['status'] == 'running')
 				{
 					\Cli::write('The same task still running.');
 					return;
@@ -132,12 +132,15 @@ class Refine
 			}	
 
 			//Create new Cron log
-			$log         = new \Cron_Log();
-			$log->status = 'running';
-			$log->shop   = $shop;
-			$log->task   = $task;
-			$log->params = $params;
-			$log->save();
+			$log             = array();
+			$log['status']   = 'running';
+			$log['created_at']   = time();
+			$log['hostname'] = $hostname;
+			$log['task']     = $task;
+			$log['params']   = $params;
+
+			// get inserted log ID
+			$log_id = \DB::insert('task_log')->set($log)->execute()[0];
 		}
 
 		if (is_callable(array($new_task, $method)))
@@ -148,16 +151,16 @@ class Refine
 				{
 					\Cli::write($return);
 				}
-				isset($log) and $log->status = 'ok';
+				isset($log) and $log['status'] = 'ok';
 			}
 			catch (Exception $e)
 			{
-				isset($log) and $log->status = 'error';
-				isset($log) and $log->error = $e->getMessage();
+				isset($log) and $log['status'] = 'error';
+				isset($log) and $log['error'] = $e->getMessage();
 			}
 
-			isset($log) and $log->finish_at = time();
-			isset($log) and $log->save();
+			isset($log) and $log['finish_at'] = time();
+			isset($log) and \DB::update('task_log')->set($log)->where('id', $log_id)->execute();
 		}
 		else
 		{
