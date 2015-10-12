@@ -108,7 +108,7 @@ class Refine
 		{
 			$hostname = isset($_SERVER['FUEL_HOSTNAME']) ? $_SERVER['FUEL_HOSTNAME'] : '';
 
-			$params   = json_encode($args);
+			$params   = json_encode(array_slice($_SERVER['argv'], 3));
 
 			//Check if task don't running
 			if ($prev = \DB::select()->from('task_log')->where('task', $task)->where('params', $params)->where('hostname', $hostname)->order_by('id', 'desc')->limit(1)->execute()->as_array())
