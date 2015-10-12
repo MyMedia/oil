@@ -118,7 +118,7 @@ class Refine
 				if ($prev['status'] == 'running' and $prev['created_at'] < (time() - 60 * 15))
 				{
 					$prev['status']    = 'error';
-					$prev['error']     = 'Timeout: Task was running over 15 minutes';
+					$prev['error_message']     = 'Timeout: Task was running over 15 minutes';
 					$prev['finish_at'] = time();
 					\DB::update('task_log')->set($prev)->where('id', $prev['id'])->execute();
 				}
@@ -156,7 +156,7 @@ class Refine
 			catch (Exception $e)
 			{
 				isset($log) and $log['status'] = 'error';
-				isset($log) and $log['error'] = $e->getMessage();
+				isset($log) and $log['error_message'] = $e->getMessage();
 			}
 
 			isset($log) and $log['finish_at'] = time();
@@ -178,7 +178,6 @@ class Refine
 					if (strpos($method->name, '_') !== 0)
 					{
 						\Cli::write(sprintf("php oil [r|refine] %s:%s", $reflect->getShortName(), $method->name));
-
 					}
 				}
 			}
