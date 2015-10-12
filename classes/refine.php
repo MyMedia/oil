@@ -104,9 +104,9 @@ class Refine
 		}
 
 		//Check if logs exists
-		if (\DBUtil::table_exists('task_log'))
+		if (isset($_SERVER['FUEL_ENABLE_TASK_LOG']) and \DBUtil::table_exists('task_log'))
 		{
-			$hostname = $_SERVER['FUEL_HOSTNAME'] ?: '';
+			$hostname = isset($_SERVER['FUEL_HOSTNAME']) ? $_SERVER['FUEL_HOSTNAME'] : '';
 
 			$params   = json_encode($args);
 
