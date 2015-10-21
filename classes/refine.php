@@ -137,6 +137,8 @@ class Refine
 			}
 			catch (\Exception $e)
 			{
+				\Cli::error($e->getMessage());
+				
 				// unlock task with error
 				static::$_task_log_enabled and static::task_unlock($e->getMessage());
 			}
