@@ -196,16 +196,10 @@ HELP;
 						// Check if we might be using the phar library
 						$is_phar = false;
 						foreach(explode(':', getenv('PATH')) as $path)
-						{
 							if (is_file($path.DS.$phpunit_command))
 							{
-								$handle = fopen($path.DS.$phpunit_command, 'r');
-								$is_phar = fread($handle, 18) == '#!/usr/bin/env php';
-								fclose($handle);
-								if ($is_phar)
-								{
-									break;
-								}
+								$is_phar = true;
+								break;
 							}
 						}
 
