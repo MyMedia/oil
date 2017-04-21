@@ -141,6 +141,8 @@ class Refine
 				
 				// unlock task with error
 				static::$_task_log_enabled and static::task_unlock($e->getMessage());
+				// Set non-zero exit code
+				die(255);
 			}
 			
 			return;
