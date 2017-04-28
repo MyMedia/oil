@@ -196,6 +196,7 @@ HELP;
 						// Check if we might be using the phar library
 						$is_phar = false;
 						foreach(explode(':', getenv('PATH')) as $path)
+						{
 							if (is_file($path.DS.$phpunit_command))
 							{
 								$is_phar = true;
